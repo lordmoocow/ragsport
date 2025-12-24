@@ -1,0 +1,34 @@
+[workspace]
+resolver = "2"
+members = ["bluffsport-lib", "bluffsport-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["Samuel J. Williams"]
+
+[workspace.dependencies]
+# Internal
+bluffsport-lib = { path = "bluffsport-lib" }
+
+# Async
+tokio = { version = "1.48.0", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.146"
+
+# Error handling
+thiserror = "2.0.17"
+anyhow = "1.0.100"
+
+# CLI
+clap = { version = "4.5.53", features = ["derive"] }
+
+# Embeddings - supports BAAI/bge models via ONNX
+fastembed = "5.5.0"
+
+# Logging
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }

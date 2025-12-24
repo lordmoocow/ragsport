@@ -1,0 +1,13 @@
+/target
+Cargo.lock
+.env
+
+# Model cache
+.cache/
+*.onnx
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.fastembed_cache
