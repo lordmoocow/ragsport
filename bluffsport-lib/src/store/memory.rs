@@ -1,26 +1,26 @@
-use std::{collections::{BinaryHeap, HashMap}};
+use std::collections::{BinaryHeap, HashMap};
 
-use crate::{
-    Result,
-    chunk::Chunk,
-    embed::Embedding,
-    store::{SearchResult, VectorStore},
-};
+use crate::chunk::Chunk;
+use crate::embed::Embedding;
+use crate::store::{SearchResult, VectorStore};
+use crate::Result;
 
-/// In-memory vector store for development and testing
+/// In-memory vector store for development and testing.
 ///
-/// Uses brute-force cosine similarity search.
+/// Uses brute-force cosine similarity search. Suitable for small datasets
+/// (< 10k chunks). For production, use a proper vector database.
 pub struct MemoryStore {
     chunks: HashMap<String, Chunk>,
     embeddings: HashMap<String, Embedding>,
 }
 
 impl MemoryStore {
-    /// Create a new empty in-memory store
+    /// Create a new empty in-memory store.
+    #[must_use]
     pub fn new() -> Self {
         Self {
-            chunks: HashMap::default(),
-            embeddings: HashMap::default(),
+            chunks: HashMap::new(),
+            embeddings: HashMap::new(),
         }
     }
 }
@@ -41,14 +41,26 @@ impl VectorStore for MemoryStore {
     }
 
     fn search(&self, query: &Embedding, k: usize) -> Result<Vec<SearchResult>> {
-        let mut results = BinaryHeap::with_capacity(self.len());
-        for (id,chunk) in &self.chunks {
+        let mut results = BinaryHeap::with_capacity(self.chunks.len());
+
+        for (id, chunk) in &self.chunks {
+            let embedding = self
+                .embeddings
+                .get(id)
+                .expect("chunk and embedding should have matching ids");
+
             results.push(SearchResult {
                 chunk: chunk.clone(),
-                score: cosine_similarity(query, self.embeddings.get(id).unwrap())
+                score: cosine_similarity(query, embedding),
             });
         }
-        Ok(results.into_sorted_vec().into_iter().rev().take(k).collect())
+
+        Ok(results
+            .into_sorted_vec()
+            .into_iter()
+            .rev()
+            .take(k)
+            .collect())
     }
 
     fn len(&self) -> usize {
@@ -61,10 +73,20 @@ impl VectorStore for MemoryStore {
     }
 }
 
+/// Compute cosine similarity between two vectors.
+///
+/// Returns a value in [-1, 1] where 1 means identical direction.
 fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    debug_assert_eq!(a.len(), b.len(), "vectors must have same length");
+
+    let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
     let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
     let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
+
+    if norm_a == 0.0 || norm_b == 0.0 {
+        return 0.0;
+    }
+
     dot / (norm_a * norm_b)
 }
 
@@ -84,9 +106,8 @@ mod tests {
     #[test]
     fn test_cosine_similarity_identical() {
         let a = vec![1.0, 0.0, 0.0];
-        let b = vec![1.0, 0.0, 0.0];
-        let sim = cosine_similarity(&a, &b);
-        assert!((sim - 1.0).abs() < 0.0001);
+        let sim = cosine_similarity(&a, &a);
+        assert!((sim - 1.0).abs() < 1e-6);
     }
 
     #[test]
@@ -94,7 +115,7 @@ mod tests {
         let a = vec![1.0, 0.0, 0.0];
         let b = vec![0.0, 1.0, 0.0];
         let sim = cosine_similarity(&a, &b);
-        assert!(sim.abs() < 0.0001);
+        assert!(sim.abs() < 1e-6);
     }
 
     #[test]
@@ -102,7 +123,7 @@ mod tests {
         let a = vec![1.0, 0.0, 0.0];
         let b = vec![-1.0, 0.0, 0.0];
         let sim = cosine_similarity(&a, &b);
-        assert!((sim + 1.0).abs() < 0.0001);
+        assert!((sim + 1.0).abs() < 1e-6);
     }
 
     #[test]
@@ -130,9 +151,9 @@ mod tests {
         ];
         // Query will be [1, 0, 0]
         let embeddings = vec![
-            vec![0.0, 1.0, 0.0],  // orthogonal to query
-            vec![1.0, 0.0, 0.0],  // identical to query
-            vec![0.5, 0.5, 0.0],  // somewhat similar
+            vec![0.0, 1.0, 0.0], // orthogonal to query
+            vec![1.0, 0.0, 0.0], // identical to query
+            vec![0.5, 0.5, 0.0], // somewhat similar
         ];
 
         store.insert(&chunks, &embeddings).unwrap();
@@ -155,11 +176,7 @@ mod tests {
             make_chunk("2", "b"),
             make_chunk("3", "c"),
         ];
-        let embeddings = vec![
-            vec![1.0, 0.0],
-            vec![0.9, 0.1],
-            vec![0.8, 0.2],
-        ];
+        let embeddings = vec![vec![1.0, 0.0], vec![0.9, 0.1], vec![0.8, 0.2]];
 
         store.insert(&chunks, &embeddings).unwrap();
 
@@ -181,7 +198,7 @@ mod tests {
         let query = vec![1.0, 0.0];
         let results = store.search(&query, 100).unwrap();
 
-        assert_eq!(results.len(), 1); // should not panic, just return what's available
+        assert_eq!(results.len(), 1);
     }
 
     #[test]
@@ -211,7 +228,7 @@ mod tests {
         store.insert(&chunks1, &embeddings).unwrap();
         store.insert(&chunks2, &embeddings).unwrap();
 
-        assert_eq!(store.len(), 1); // should dedupe
+        assert_eq!(store.len(), 1);
     }
 
     #[test]

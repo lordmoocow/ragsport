@@ -1,26 +1,27 @@
-use fastembed::{InitOptions, TextEmbedding};
+use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 
-use crate::{Error, Result, embed::Embedder};
+use crate::embed::{Embedder, Embedding};
+use crate::{Error, Result};
 
-/// BGE embedder using BAAI/bge-large-en-v1.5
+/// BGE embedder using BAAI/bge-large-en-v1.5.
 ///
-/// Uses fastembed for ONNX-based inference.
+/// Uses fastembed for ONNX-based inference. This model produces 1024-dimensional
+/// embeddings and supports up to 512 tokens per input.
 pub struct BgeEmbedder {
     model: TextEmbedding,
 }
 
 impl BgeEmbedder {
-    /// Create a new BGE embedder
+    /// Create a new BGE embedder.
     ///
-    /// This will download the model on first use (~1.2GB).
+    /// Downloads the model on first use (~1.2GB).
     pub fn new() -> Result<Self> {
-        match TextEmbedding::try_new(
-            InitOptions::new(fastembed::EmbeddingModel::BGELargeENV15)
-                .with_show_download_progress(true),
-        ) {
-            Err(e) => Err(Error::Embedding(e.to_string())),
-            Ok(model) => Ok(Self { model }),
-        }
+        let opts = InitOptions::new(EmbeddingModel::BGELargeENV15)
+            .with_show_download_progress(true);
+
+        TextEmbedding::try_new(opts)
+            .map(|model| Self { model })
+            .map_err(|e| Error::Embedding(e.to_string()))
     }
 }
 
@@ -29,32 +30,25 @@ impl Embedder for BgeEmbedder {
         "BAAI/bge-large-en-v1.5"
     }
 
-    fn embed_documents(&mut self, texts: &[&str]) -> Result<Vec<super::Embedding>> {
-        match self.model.embed(texts, None) {
-            Err(e) => Err(Error::Embedding(e.to_string())),
-            Ok(v) => Ok(v),
-        }
-    }
-
-    fn embed_query(&mut self, text: &str) -> Result<super::Embedding> {
-        let embeds = match self.model.embed(
-            vec![format!(
-                "Represent this sentence for searching relevant passages: {text}"
-            )],
-            None,
-        ) {
-            Err(e) => return Err(Error::Embedding(e.to_string())),
-            Ok(embeds) => embeds
-        };
-
-        if let Some(e) = embeds.first() {
-            Ok(e.to_vec())
-        } else {
-            Err(Error::Embedding("failed".to_string()))
-        }
-    }
-
     fn dimension(&self) -> usize {
         1024
+    }
+
+    fn embed_documents(&mut self, texts: &[&str]) -> Result<Vec<Embedding>> {
+        self.model
+            .embed(texts, None)
+            .map_err(|e| Error::Embedding(e.to_string()))
+    }
+
+    fn embed_query(&mut self, text: &str) -> Result<Embedding> {
+        // BGE uses a special prompt prefix for queries to improve retrieval
+        let query_text = format!("Represent this sentence for searching relevant passages: {text}");
+
+        self.model
+            .embed(vec![query_text], None)
+            .map_err(|e| Error::Embedding(e.to_string()))?
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::Embedding("model returned no embeddings".to_string()))
     }
 }

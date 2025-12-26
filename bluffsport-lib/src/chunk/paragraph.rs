@@ -15,7 +15,7 @@ pub struct ParagraphChunker {
 
 impl Chunker for ParagraphChunker {
     fn name(&self) -> &str {
-        return "paragraph"
+        "paragraph"
     }
 
     fn chunk(&self, content: &str, mut metadata: ChunkMetadata) -> Vec<Chunk> {
@@ -59,7 +59,7 @@ impl Chunker for ParagraphChunker {
         }
 
         // flush buffer chunk
-        if buffer.len() > 0 {
+        if !buffer.is_empty() {
             let mut m = metadata.clone();
             m.position = start;
 

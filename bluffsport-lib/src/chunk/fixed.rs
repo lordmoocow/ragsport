@@ -16,7 +16,7 @@ pub struct FixedSizeChunker {
 
 impl Chunker for FixedSizeChunker {
     fn name(&self) -> &str {
-        return "fixed";
+        "fixed"
     }
 
     fn chunk(&self, content: &str, mut metadata: ChunkMetadata) -> Vec<Chunk> {

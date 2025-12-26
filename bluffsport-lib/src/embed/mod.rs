@@ -22,7 +22,7 @@
 //! let query_embedding = embedder.embed_query("Who scored the winning goal?")?;
 //! ```
 
-use crate::{Result};
+use crate::Result;
 
 /// A vector embedding - fixed size array of floats
 pub type Embedding = Vec<f32>;
