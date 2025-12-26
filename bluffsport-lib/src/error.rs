@@ -12,6 +12,10 @@ pub enum Error {
     #[error("embedding error: {0}")]
     Embedding(String),
 
+    /// Failed to load or run the reranking model
+    #[error("reranking error: {0}")]
+    Reranking(String),
+
     /// Failed to chunk a document
     #[error("chunking error: {0}")]
     Chunking(String),

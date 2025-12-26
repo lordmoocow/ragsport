@@ -34,5 +34,6 @@ pub mod embed;
 pub mod error;
 pub mod search;
 pub mod store;
+pub mod rerank;
 
 pub use error::{Error, Result};

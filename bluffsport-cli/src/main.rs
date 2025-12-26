@@ -19,8 +19,9 @@ use anyhow::Result;
 use bluffsport_lib::{
     chunk::{Chunk, ChunkMetadata, Chunker, FixedSizeChunker, ParagraphChunker},
     embed::{BgeEmbedder, Embedder},
-    store::MemoryStore,
+    rerank::BgeReranker,
     search::SearchEngine,
+    store::MemoryStore,
 };
 use clap::{Parser, Subcommand};
 use tracing_subscriber::EnvFilter;
@@ -72,13 +73,21 @@ enum Commands {
         /// Query to search for
         query: String,
 
-        /// Number of results
+        /// Number of results to return
         #[arg(short, long, default_value = "3")]
         k: usize,
 
+        /// Number of candidates for reranking (only used with --rerank)
+        #[arg(short, long, default_value = "20")]
+        n: usize,
+
         /// Chunking strategy
-        #[arg(short, long, default_value = "paragraph")]
+        #[arg(long, default_value = "paragraph")]
         strategy: String,
+
+        /// Enable reranking (two-stage retrieval with cross-encoder)
+        #[arg(short, long)]
+        rerank: bool,
     },
 }
 
@@ -150,37 +159,47 @@ async fn main() -> Result<()> {
             input,
             query,
             k,
+            n,
             strategy,
+            rerank,
         } => {
             // Load and chunk document
-            println!("Loading '{}'...", input);
+            println!("Loading '{input}'...");
             let text = fs::read_to_string(&input)?;
             let chunks = chunk_text(&text, &strategy, 512, 100);
-            println!("Created {} chunks using {} strategy", chunks.len(), strategy);
+            println!("Created {} chunks using {strategy} strategy", chunks.len());
 
             // Initialize embedder and store
             println!("\nLoading BGE model (first run downloads ~1.2GB)...");
             let embedder = BgeEmbedder::new()?;
             let store = MemoryStore::new();
-            let mut engine = SearchEngine::new(embedder, store);
 
-            // Index chunks
-            println!("Indexing {} chunks...", chunks.len());
-            engine.index(&chunks)?;
-            println!("Done! Index contains {} chunks", engine.len());
-
-            // Search
-            println!("\nSearching for: '{}' (k={})", query, k);
-            let results = engine.search(&query, k)?;
+            // Search with or without reranking
+            let results = if rerank {
+                println!("Loading reranker model...");
+                let reranker = BgeReranker::new()?;
+                let mut engine = SearchEngine::with_rerank(embedder, store, reranker);
+                println!("Indexing {} chunks...", chunks.len());
+                engine.index(&chunks)?;
+                println!("Done! Index contains {} chunks", engine.len());
+                println!("\nSearching: '{query}' (k={k}, n={n}, reranking enabled)");
+                engine.search_reranked(&query, k, n)?
+            } else {
+                let mut engine = SearchEngine::new(embedder, store);
+                println!("Indexing {} chunks...", chunks.len());
+                engine.index(&chunks)?;
+                println!("Done! Index contains {} chunks", engine.len());
+                println!("\nSearching: '{query}' (k={k})");
+                engine.search(&query, k)?
+            };
 
             println!("\n=== Results ===\n");
             for (i, result) in results.iter().enumerate() {
                 println!("#{} (score: {:.4})", i + 1, result.score);
                 println!("---");
-                // Show preview
                 let preview: String = result.chunk.content.chars().take(300).collect();
-                println!("{}{}", preview, if result.chunk.content.len() > 300 { "..." } else { "" });
-                println!();
+                let ellipsis = if result.chunk.content.len() > 300 { "..." } else { "" };
+                println!("{preview}{ellipsis}\n");
             }
         }
     }
