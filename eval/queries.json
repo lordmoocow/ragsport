@@ -1,0 +1,115 @@
+{
+  "description": "Test queries for BluffSport RAG evaluation based on sports_sample_1.txt",
+  "queries": [
+    {
+      "id": "cws-champion",
+      "query": "Who won the 2011 College World Series?",
+      "relevant_keywords": ["South Carolina", "national champion", "SEC", "championship"],
+      "source": "sports_sample.txt",
+      "notes": "Opening article about CWS"
+    },
+    {
+      "id": "cws-mvp",
+      "query": "Who was the CWS Most Outstanding Player?",
+      "relevant_keywords": ["Scott Wingo", "walk-off", "Texas A&M", "CWS"],
+      "source": "sports_sample.txt",
+      "notes": "Should find the Scott Wingo mention"
+    },
+    {
+      "id": "ravens-superbowl",
+      "query": "What was the final score of the Ravens 49ers Super Bowl?",
+      "relevant_keywords": ["34-31", "Ravens", "49ers", "Super Bowl", "Flacco"],
+      "source": "sports_sample.txt",
+      "notes": "Detailed Super Bowl article"
+    },
+    {
+      "id": "superbowl-blackout",
+      "query": "What happened during the Super Bowl power outage?",
+      "relevant_keywords": ["blackout", "power", "34-minute", "delay", "Superdome"],
+      "source": "sports_sample.txt",
+      "notes": "Should find the power outage description"
+    },
+    {
+      "id": "superbowl-mvp",
+      "query": "Who was the Super Bowl MVP against the 49ers?",
+      "relevant_keywords": ["Flacco", "MVP", "touchdown", "passes"],
+      "source": "sports_sample.txt",
+      "notes": "Joe Flacco MVP mention"
+    },
+    {
+      "id": "ray-lewis",
+      "query": "When did Ray Lewis retire from the NFL?",
+      "relevant_keywords": ["Ray Lewis", "retirement", "last ride", "17", "Hall of Fame"],
+      "source": "sports_sample.txt",
+      "notes": "Ray Lewis retirement after Super Bowl"
+    },
+    {
+      "id": "teo-hoax",
+      "query": "What happened with Manti Te'o's girlfriend?",
+      "relevant_keywords": ["hoax", "Lennay Kekua", "Notre Dame", "Deadspin"],
+      "source": "sports_sample.txt",
+      "notes": "Famous fake girlfriend story"
+    },
+    {
+      "id": "world-peace-elbow",
+      "query": "Who did Metta World Peace elbow in the head?",
+      "relevant_keywords": ["James Harden", "elbow", "Lakers", "Thunder", "ejected"],
+      "source": "sports_sample.txt",
+      "notes": "Ron Artest incident"
+    },
+    {
+      "id": "wade-mvp",
+      "query": "Why should Dwyane Wade be MVP?",
+      "relevant_keywords": ["Wade", "36 points", "10 assists", "Miami Heat", "LeBron"],
+      "source": "sports_sample.txt",
+      "notes": "Wade MVP argument article"
+    },
+    {
+      "id": "bryant-kicker",
+      "query": "How many game-winning field goals has Matt Bryant made?",
+      "relevant_keywords": ["Bryant", "five", "game-winning", "Falcons", "49-yard"],
+      "source": "sports_sample.txt",
+      "notes": "Falcons kicker profile"
+    },
+    {
+      "id": "roy-jones-olympics",
+      "query": "What happened to Roy Jones Jr. at the 1988 Olympics?",
+      "relevant_keywords": ["Roy Jones", "robbed", "Park Si-Hun", "Seoul", "gold"],
+      "source": "sports_sample.txt",
+      "notes": "Controversial boxing decision"
+    },
+    {
+      "id": "van-de-velde",
+      "query": "What happened to Jean Van de Velde at Carnoustie?",
+      "relevant_keywords": ["Van de Velde", "triple bogey", "burn", "1999", "meltdown"],
+      "source": "sports_sample.txt",
+      "notes": "Famous golf collapse"
+    },
+    {
+      "id": "cowboys-2000",
+      "query": "Who was the Dallas Cowboys head coach in 2000?",
+      "relevant_keywords": ["Dave Campo", "Aikman", "Jerry Jones", "5-11"],
+      "source": "sports_sample.txt",
+      "notes": "Cowboys season article"
+    },
+    {
+      "id": "anchorage-olympics",
+      "query": "Has Anchorage bid for the Winter Olympics before?",
+      "relevant_keywords": ["1992", "1994", "Albertville", "Lillehammer", "2026"],
+      "source": "sports_sample.txt",
+      "notes": "Anchorage Olympics bid story"
+    },
+    {
+      "id": "carpenter-contract",
+      "query": "How many years is Matt Carpenter's contract extension?",
+      "relevant_keywords": ["six-year", "Cardinals", "2019", "All-Star"],
+      "source": "sports_sample.txt",
+      "notes": "Cardinals contract news"
+    }
+  ],
+  "evaluation_notes": {
+    "scoring": "A result is relevant if it contains at least 2 of the relevant_keywords",
+    "metrics": ["precision@5", "recall@5", "mrr"],
+    "methodology": "Run each query, check top 5 results for keyword presence"
+  }
+}
