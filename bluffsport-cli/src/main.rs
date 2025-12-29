@@ -134,6 +134,10 @@ enum Commands {
         /// Show detailed results for each query
         #[arg(long)]
         verbose: bool,
+
+        /// Output results as JSON (for LLM-as-judge evaluation)
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -148,9 +152,43 @@ struct QueryFile {
 struct TestQuery {
     id: String,
     query: String,
+    #[serde(default)]
     relevant_keywords: Vec<String>,
     #[serde(default)]
+    expected_answer: String,
+    #[serde(default)]
     source: String,
+}
+
+// JSON output types for LLM-as-judge
+#[derive(Debug, serde::Serialize)]
+struct JsonOutput {
+    config: JsonConfig,
+    results: Vec<JsonQueryResult>,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct JsonConfig {
+    strategy: String,
+    chunk_size: usize,
+    reranking: bool,
+    k: usize,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct JsonQueryResult {
+    query_id: String,
+    query: String,
+    expected_answer: String,
+    retrieved_chunks: Vec<JsonChunk>,
+    latency_ms: u128,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct JsonChunk {
+    rank: usize,
+    score: f32,
+    content: String,
 }
 
 #[derive(Debug)]
@@ -400,11 +438,15 @@ async fn main() -> Result<()> {
             overlap,
             rerank,
             verbose,
+            json,
         } => {
             // Load test queries
-            let query_json = fs::read_to_string(&queries)?;
-            let query_file: QueryFile = serde_json::from_str(&query_json)?;
-            println!("Loaded {} test queries from {queries}", query_file.queries.len());
+            let query_json_str = fs::read_to_string(&queries)?;
+            let query_file: QueryFile = serde_json::from_str(&query_json_str)?;
+
+            if !json {
+                println!("Loaded {} test queries from {queries}", query_file.queries.len());
+            }
 
             // Load and chunk all input documents
             let mut all_chunks = Vec::new();
@@ -415,50 +457,75 @@ async fn main() -> Result<()> {
                 let filename = path.file_name().unwrap().to_string_lossy().to_string();
                 let text = fs::read_to_string(input)?;
                 let chunks = chunk_with_source(&text, &filename, &strategy, size, overlap);
-                println!("  {filename}: {} chunks", chunks.len());
+                if !json {
+                    println!("  {filename}: {} chunks", chunks.len());
+                }
                 source_map.insert(filename, input.clone());
                 all_chunks.extend(chunks);
             }
-            println!("Total: {} chunks indexed", all_chunks.len());
+            if !json {
+                println!("Total: {} chunks indexed", all_chunks.len());
+                println!("\nLoading models...");
+            }
 
             // Initialize engine
-            println!("\nLoading models...");
             let embedder = BgeEmbedder::new()?;
             let store = MemoryStore::new();
 
-            // Print configuration
-            println!("\n=== Evaluation Config ===");
-            println!("Strategy: {strategy} (size={size}, overlap={overlap})");
-            println!("Reranking: {}", if rerank { format!("yes (n={n})") } else { "no".into() });
-            println!("k: {k}");
-            println!();
+            if json {
+                // JSON output mode for LLM-as-judge
+                let json_results = if rerank {
+                    let reranker = BgeReranker::new()?;
+                    let mut engine = SearchEngine::with_rerank(embedder, store, reranker);
+                    engine.index(&all_chunks)?;
+                    run_eval_json(&mut engine, &query_file.queries, k, Some(n))?
+                } else {
+                    let mut engine = SearchEngine::new(embedder, store);
+                    engine.index(&all_chunks)?;
+                    run_eval_json(&mut engine, &query_file.queries, k, None)?
+                };
 
-            // Run evaluation
-            let query_results = if rerank {
-                let reranker = BgeReranker::new()?;
-                let mut engine = SearchEngine::with_rerank(embedder, store, reranker);
-                engine.index(&all_chunks)?;
-
-                run_eval(&mut engine, &query_file.queries, k, Some(n), verbose)?
+                let output = JsonOutput {
+                    config: JsonConfig {
+                        strategy: strategy.clone(),
+                        chunk_size: size,
+                        reranking: rerank,
+                        k,
+                    },
+                    results: json_results,
+                };
+                println!("{}", serde_json::to_string_pretty(&output)?);
             } else {
-                let mut engine = SearchEngine::new(embedder, store);
-                engine.index(&all_chunks)?;
+                // Standard output mode
+                println!("\n=== Evaluation Config ===");
+                println!("Strategy: {strategy} (size={size}, overlap={overlap})");
+                println!("Reranking: {}", if rerank { format!("yes (n={n})") } else { "no".into() });
+                println!("k: {k}");
+                println!();
 
-                run_eval(&mut engine, &query_file.queries, k, None, verbose)?
-            };
+                let query_results = if rerank {
+                    let reranker = BgeReranker::new()?;
+                    let mut engine = SearchEngine::with_rerank(embedder, store, reranker);
+                    engine.index(&all_chunks)?;
+                    run_eval(&mut engine, &query_file.queries, k, Some(n), verbose)?
+                } else {
+                    let mut engine = SearchEngine::new(embedder, store);
+                    engine.index(&all_chunks)?;
+                    run_eval(&mut engine, &query_file.queries, k, None, verbose)?
+                };
 
-            // Calculate and print metrics
-            let metrics = calculate_metrics(&query_results, k);
+                let metrics = calculate_metrics(&query_results, k);
 
-            println!("\n=== Results ===");
-            println!("Precision@{k}: {:.3}", metrics.precision_at_k);
-            println!("Recall@{k}:    {:.3}", metrics.recall_at_k);
-            println!("MRR:           {:.3}", metrics.mrr);
-            println!("Avg latency:   {:.1}ms", metrics.avg_latency_ms);
-            println!(
-                "Queries with relevant results: {}/{}",
-                metrics.queries_with_relevant, metrics.total_queries
-            );
+                println!("\n=== Results ===");
+                println!("Precision@{k}: {:.3}", metrics.precision_at_k);
+                println!("Recall@{k}:    {:.3}", metrics.recall_at_k);
+                println!("MRR:           {:.3}", metrics.mrr);
+                println!("Avg latency:   {:.1}ms", metrics.avg_latency_ms);
+                println!(
+                    "Queries with relevant results: {}/{}",
+                    metrics.queries_with_relevant, metrics.total_queries
+                );
+            }
         }
     }
 
@@ -529,6 +596,52 @@ where
             query_id: test_query.id.clone(),
             relevant_in_top_k: relevant_count,
             first_relevant_rank: first_relevant,
+            latency_ms: latency,
+        });
+    }
+
+    Ok(results)
+}
+
+/// Run evaluation and return JSON-formatted results for LLM-as-judge
+fn run_eval_json<E, S, R>(
+    engine: &mut SearchEngine<E, S, R>,
+    queries: &[TestQuery],
+    k: usize,
+    n: Option<usize>,
+) -> Result<Vec<JsonQueryResult>>
+where
+    E: bluffsport_lib::embed::Embedder,
+    S: bluffsport_lib::store::VectorStore,
+    R: bluffsport_lib::rerank::Reranker,
+{
+    let mut results = Vec::with_capacity(queries.len());
+
+    for test_query in queries {
+        let start = Instant::now();
+
+        let search_results = match n {
+            Some(n_val) => engine.search_reranked(&test_query.query, k, n_val)?,
+            None => engine.search(&test_query.query, k)?,
+        };
+
+        let latency = start.elapsed().as_millis();
+
+        let retrieved_chunks: Vec<JsonChunk> = search_results
+            .iter()
+            .enumerate()
+            .map(|(i, r)| JsonChunk {
+                rank: i + 1,
+                score: r.score,
+                content: r.chunk.content.clone(),
+            })
+            .collect();
+
+        results.push(JsonQueryResult {
+            query_id: test_query.id.clone(),
+            query: test_query.query.clone(),
+            expected_answer: test_query.expected_answer.clone(),
+            retrieved_chunks,
             latency_ms: latency,
         });
     }

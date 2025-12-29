@@ -1,0 +1,100 @@
+{
+  "description": "Test queries for BluffSport RAG evaluation - LLM-as-judge edition",
+  "queries": [
+    {
+      "id": "fulham-score",
+      "query": "What was the final score in the Fulham vs Nottingham Forest match?",
+      "expected_answer": "Fulham won 1-0 against Nottingham Forest",
+      "source": "article1.txt, article2.txt"
+    },
+    {
+      "id": "jimenez-penalty-record",
+      "query": "What is Raul Jimenez's penalty conversion record in England?",
+      "expected_answer": "Jimenez has scored 11 out of 11 penalties in English football, matching Yaya Toure's record",
+      "source": "article1.txt, article2.txt"
+    },
+    {
+      "id": "kevin-signing-fee",
+      "query": "How much did Fulham pay for Kevin?",
+      "expected_answer": "Fulham paid £34.6 million for Kevin from Shakhtar",
+      "source": "article1.txt, article2.txt"
+    },
+    {
+      "id": "fulham-afcon-absences",
+      "query": "Which Fulham players missed the Forest game due to AFCON?",
+      "expected_answer": "Alex Iwobi, Calvin Bassey, and Samuel Chukwueze were representing Nigeria at AFCON",
+      "source": "article1.txt, article2.txt"
+    },
+    {
+      "id": "forest-xg",
+      "query": "What was Nottingham Forest's expected goals against Fulham?",
+      "expected_answer": "Forest had just 0.60 expected goals (xG) against Fulham",
+      "source": "article1.txt, article2.txt"
+    },
+    {
+      "id": "ashes-series-result",
+      "query": "What was the final Ashes series result?",
+      "expected_answer": "The Ashes series was drawn 2-2, with England levelling after being 2-0 down",
+      "source": "article3.txt"
+    },
+    {
+      "id": "broad-retirement",
+      "query": "How many Test wickets did Stuart Broad take in his career?",
+      "expected_answer": "Stuart Broad took 604 wickets in 167 Test matches before retiring",
+      "source": "article3.txt"
+    },
+    {
+      "id": "root-woakes-partnership",
+      "query": "How many runs did Root and Woakes put on together at The Oval?",
+      "expected_answer": "Joe Root and Chris Woakes had a partnership of 155 runs. Root scored 91, Woakes scored 78",
+      "source": "article3.txt"
+    },
+    {
+      "id": "cws-2011-champion",
+      "query": "Who won the 2011 College World Series?",
+      "expected_answer": "South Carolina won the 2011 College World Series, their second consecutive national championship",
+      "source": "sports_sample.txt"
+    },
+    {
+      "id": "cws-mvp",
+      "query": "Who was named Most Outstanding Player at the 2011 CWS?",
+      "expected_answer": "Scott Wingo was the CWS Most Outstanding Player after giving South Carolina a walk-off win vs Texas A&M",
+      "source": "sports_sample.txt"
+    },
+    {
+      "id": "mirabel-ranking",
+      "query": "Which golf club was ranked number one in Arizona?",
+      "expected_answer": "Mirabel Golf Club in North Scottsdale was ranked the best private golf club in Arizona by AZ Golf Insider Magazine",
+      "source": "sports_sample.txt"
+    },
+    {
+      "id": "world-peace-elbow",
+      "query": "Who did Metta World Peace elbow during the Lakers game?",
+      "expected_answer": "Metta World Peace elbowed James Harden of the Oklahoma City Thunder in the head, causing a possible concussion",
+      "source": "sports_sample.txt"
+    },
+    {
+      "id": "cowboys-2000-coach",
+      "query": "Who was the Dallas Cowboys head coach in 2000?",
+      "expected_answer": "Dave Campo was promoted to head coach of the Dallas Cowboys in 2000",
+      "source": "sports_sample.txt"
+    },
+    {
+      "id": "anchorage-olympics",
+      "query": "Which Winter Olympics did Anchorage previously bid for?",
+      "expected_answer": "Anchorage bid for the 1992 and 1994 Winter Olympics, losing to Albertville and Lillehammer respectively",
+      "source": "sports_sample.txt"
+    },
+    {
+      "id": "matt-bryant-clutch",
+      "query": "How many game-winning kicks has Matt Bryant made for the Falcons since 2010?",
+      "expected_answer": "Matt Bryant has won five games for the Falcons with field goals in the final minute since 2010, more than any other kicker",
+      "source": "sports_sample.txt"
+    }
+  ],
+  "evaluation_notes": {
+    "method": "LLM-as-judge",
+    "scoring": "Each retrieved chunk is scored 0-2 by an LLM: 0=irrelevant, 1=partially relevant, 2=highly relevant",
+    "metrics": ["precision@5", "recall@5", "mrr", "ndcg@5"]
+  }
+}
